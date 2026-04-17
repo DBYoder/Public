@@ -36,35 +36,70 @@ export default function StoryList({
         )}
       </div>
 
+      {/* Progress summary */}
+      {stories.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="h-1.5 bg-emerald-500 rounded-full transition-all duration-500"
+              style={{
+                width: `${(stories.filter((s) => s.finalEstimate).length / stories.length) * 100}%`,
+              }}
+            />
+          </div>
+          <span className="text-xs text-slate-400 shrink-0">
+            {stories.filter((s) => s.finalEstimate).length}/{stories.length}
+          </span>
+        </div>
+      )}
+
       <ul className="space-y-1.5 flex-1 overflow-y-auto min-h-0">
         {stories.length === 0 && (
           <li className="text-xs text-slate-500 italic">No stories yet.</li>
         )}
         {stories.map((story) => {
           const isCurrent = story.id === currentStoryId;
+          const isDone = !!story.finalEstimate;
           return (
             <li key={story.id}>
               <button
                 onClick={() => isFacilitator && onSelect(story.id)}
-                className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-start gap-2 ${
                   isCurrent
                     ? "bg-indigo-600/30 border border-indigo-500 text-indigo-200"
+                    : isDone
+                    ? "bg-emerald-900/20 border border-emerald-800/50 text-slate-400"
                     : isFacilitator
                     ? "hover:bg-slate-700 text-slate-300 border border-transparent"
                     : "text-slate-300 border border-transparent"
                 }`}
               >
-                {story.storyNumber && (
-                  <span className="text-xs font-mono text-indigo-400 block">
-                    {story.storyNumber}
+                {/* Status dot */}
+                <span className="mt-1 shrink-0">
+                  {isDone ? (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" title="Estimated" />
+                  ) : isCurrent ? (
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse inline-block" title="Voting now" />
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-slate-600 inline-block" title="Pending" />
+                  )}
+                </span>
+
+                <span className="flex-1 min-w-0">
+                  {story.storyNumber && (
+                    <span className={`text-xs font-mono block ${isCurrent ? "text-indigo-400" : "text-slate-500"}`}>
+                      {story.storyNumber}
+                    </span>
+                  )}
+                  <span className={`truncate block ${isDone && !isCurrent ? "line-through decoration-slate-600" : ""}`}>
+                    {story.title}
                   </span>
-                )}
-                <span className="truncate block">{story.title}</span>
-                {story.finalEstimate && (
-                  <span className="text-xs font-mono text-emerald-400">
-                    Est: {story.finalEstimate}
-                  </span>
-                )}
+                  {isDone && (
+                    <span className="text-xs font-mono text-emerald-400">
+                      Est: {story.finalEstimate}
+                    </span>
+                  )}
+                </span>
               </button>
             </li>
           );
