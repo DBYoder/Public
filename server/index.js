@@ -13,6 +13,7 @@ const {
   revealVotes,
   resetVotes,
   addStory,
+  addStoriesBulk,
   selectStory,
   setEstimate,
   publicState,
@@ -126,11 +127,20 @@ io.on("connection", (socket) => {
   });
 
   // --- Add story ---
-  socket.on("add-story", ({ title }) => {
+  socket.on("add-story", ({ title, description, acceptanceCriteria }) => {
     const session = guardFacilitator(currentSessionId);
     if (!session) return;
     if (!title || !title.trim()) return;
-    const updated = addStory(currentSessionId, title.trim());
+    const updated = addStory(currentSessionId, { title, description, acceptanceCriteria });
+    if (updated) broadcast(updated);
+  });
+
+  // --- Bulk add stories from CSV ---
+  socket.on("add-stories-bulk", ({ stories }) => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    if (!Array.isArray(stories) || stories.length === 0) return;
+    const updated = addStoriesBulk(currentSessionId, stories);
     if (updated) broadcast(updated);
   });
 

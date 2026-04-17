@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CsvUpload from "./CsvUpload.jsx";
 
 export default function StoryList({
   stories,
@@ -6,9 +7,10 @@ export default function StoryList({
   isFacilitator,
   onSelect,
   onAdd,
-  onSetEstimate,
+  onBulkAdd,
 }) {
   const [newTitle, setNewTitle] = useState("");
+  const [showCsvUpload, setShowCsvUpload] = useState(false);
 
   function handleAdd(e) {
     e.preventDefault();
@@ -19,9 +21,20 @@ export default function StoryList({
 
   return (
     <div className="flex flex-col h-full">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-        Stories
-      </h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Stories
+        </h3>
+        {isFacilitator && (
+          <button
+            onClick={() => setShowCsvUpload(true)}
+            title="Import from CSV"
+            className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+          >
+            CSV
+          </button>
+        )}
+      </div>
 
       <ul className="space-y-1.5 flex-1 overflow-y-auto min-h-0">
         {stories.length === 0 && (
@@ -69,6 +82,13 @@ export default function StoryList({
             +
           </button>
         </form>
+      )}
+
+      {showCsvUpload && (
+        <CsvUpload
+          onImport={onBulkAdd}
+          onClose={() => setShowCsvUpload(false)}
+        />
       )}
     </div>
   );

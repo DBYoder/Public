@@ -107,16 +107,36 @@ function resetVotes(sessionId) {
   return session;
 }
 
-function addStory(sessionId, title) {
+function addStory(sessionId, { title, description = "", acceptanceCriteria = "" }) {
   const session = sessions.get(sessionId);
   if (!session) return null;
   const story = {
     id: nanoid(),
     title,
+    description,
+    acceptanceCriteria,
     finalEstimate: null,
   };
   session.stories.push(story);
   if (!session.currentStoryId) session.currentStoryId = story.id;
+  return session;
+}
+
+function addStoriesBulk(sessionId, stories) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  for (const { title, description = "", acceptanceCriteria = "" } of stories) {
+    if (!title?.trim()) continue;
+    const story = {
+      id: nanoid(),
+      title: title.trim(),
+      description: description.trim(),
+      acceptanceCriteria: acceptanceCriteria.trim(),
+      finalEstimate: null,
+    };
+    session.stories.push(story);
+    if (!session.currentStoryId) session.currentStoryId = story.id;
+  }
   return session;
 }
 
@@ -170,6 +190,7 @@ module.exports = {
   revealVotes,
   resetVotes,
   addStory,
+  addStoriesBulk,
   selectStory,
   setEstimate,
   publicState,

@@ -86,6 +86,7 @@ export default function Session({ sessionInfo, onLeave }) {
             isFacilitator={isFacilitator}
             onSelect={(id) => emit("select-story", { storyId: id })}
             onAdd={(title) => emit("add-story", { title })}
+            onBulkAdd={(stories) => emit("add-stories-bulk", { stories })}
           />
           <div className="border-t border-slate-700 pt-4">
             <ParticipantList
@@ -98,23 +99,49 @@ export default function Session({ sessionInfo, onLeave }) {
 
         {/* Main */}
         <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto">
-          {/* Current story title */}
-          <div className="w-full max-w-2xl mb-6 text-center">
+          {/* Current story */}
+          <div className="w-full max-w-2xl mb-6">
             {currentStory ? (
-              <h2 className="text-xl font-semibold text-white">
-                {currentStory.title}
-              </h2>
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-lg font-semibold text-white leading-snug">
+                    {currentStory.title}
+                  </h2>
+                  {currentStory.finalEstimate && (
+                    <span className="shrink-0 px-2 py-0.5 bg-emerald-700 text-emerald-200 text-xs rounded font-mono">
+                      Final: {currentStory.finalEstimate}
+                    </span>
+                  )}
+                </div>
+
+                {currentStory.description && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      Description
+                    </p>
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {currentStory.description}
+                    </p>
+                  </div>
+                )}
+
+                {currentStory.acceptanceCriteria && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      Acceptance Criteria
+                    </p>
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {currentStory.acceptanceCriteria}
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-slate-400 italic">
+              <p className="text-slate-400 italic text-center">
                 {isFacilitator
                   ? "Add a story in the sidebar to get started."
                   : "Waiting for the facilitator to select a story…"}
               </p>
-            )}
-            {currentStory?.finalEstimate && (
-              <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-700 text-emerald-200 text-xs rounded font-mono">
-                Final: {currentStory.finalEstimate}
-              </span>
             )}
           </div>
 
