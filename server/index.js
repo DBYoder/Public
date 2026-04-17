@@ -6,6 +6,7 @@ const path = require("path");
 const {
   createSession,
   getSession,
+  deleteSession,
   addParticipant,
   reconnectParticipant,
   markParticipantOffline,
@@ -167,6 +168,16 @@ io.on("connection", (socket) => {
     if (!session) return;
     const updated = setEstimate(currentSessionId, storyId, estimate);
     if (updated) broadcast(updated);
+  });
+
+  // --- End session (facilitator only) ---
+  socket.on("end-session", () => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    // Notify everyone in the room before deleting
+    io.to(session.id).emit("session-ended");
+    deleteSession(session.id);
+    currentSessionId = null;
   });
 
   // --- Disconnect ---

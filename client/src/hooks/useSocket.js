@@ -6,6 +6,7 @@ export function useSocket(sessionInfo) {
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   useEffect(() => {
     const socket = io({ transports: ["websocket", "polling"] });
@@ -25,6 +26,8 @@ export function useSocket(sessionInfo) {
 
     socket.on("error", ({ message }) => setError(message));
 
+    socket.on("session-ended", () => setSessionEnded(true));
+
     return () => socket.disconnect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,5 +37,5 @@ export function useSocket(sessionInfo) {
 
   const myId = socketRef.current?.id;
 
-  return { session, error, connected, myId, emit };
+  return { session, error, connected, myId, emit, sessionEnded };
 }

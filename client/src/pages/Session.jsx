@@ -6,8 +6,9 @@ import ResultsPanel from "../components/ResultsPanel.jsx";
 import ParticipantList from "../components/ParticipantList.jsx";
 
 export default function Session({ sessionInfo, onLeave }) {
-  const { session, error, connected, myId, emit } = useSocket(sessionInfo);
+  const { session, error, connected, myId, emit, sessionEnded } = useSocket(sessionInfo);
   const [copied, setCopied] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   // ALL hooks must be declared unconditionally before any early returns.
   // Placing them after a conditional return violates React's rules of hooks
@@ -20,6 +21,11 @@ export default function Session({ sessionInfo, onLeave }) {
   const [localMyVote, setLocalMyVote] = useState(null);
   const prevStoryId = useRef(null);
   const prevPhase = useRef(null);
+
+  // Redirect everyone (including the facilitator) when the session is ended
+  useEffect(() => {
+    if (sessionEnded) onLeave();
+  }, [sessionEnded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!session) return;
@@ -92,6 +98,32 @@ export default function Session({ sessionInfo, onLeave }) {
               {copied ? "✓ Copied" : "Copy"}
             </span>
           </button>
+          {isFacilitator && (
+            confirmEnd ? (
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-red-400">End session for everyone?</span>
+                <button
+                  onClick={() => emit("end-session")}
+                  className="text-xs px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded font-medium transition-colors"
+                >
+                  Yes, end it
+                </button>
+                <button
+                  onClick={() => setConfirmEnd(false)}
+                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmEnd(true)}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                End Session
+              </button>
+            )
+          )}
           <button
             onClick={onLeave}
             className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
