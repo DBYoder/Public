@@ -3,6 +3,7 @@ import { useSocket } from "../hooks/useSocket.js";
 import CardDeck from "../components/CardDeck.jsx";
 import StoryList from "../components/StoryList.jsx";
 import ResultsPanel from "../components/ResultsPanel.jsx";
+import ParticipantList from "../components/ParticipantList.jsx";
 
 export default function Session({ sessionInfo, onLeave }) {
   const { session, error, connected, myId, emit } = useSocket(sessionInfo);
@@ -75,44 +76,9 @@ export default function Session({ sessionInfo, onLeave }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700 gap-4">
-        <h1 className="font-bold text-white text-lg shrink-0">Planning Poker</h1>
-
-        {/* Participant chips */}
-        <div className="flex items-center gap-1.5 flex-wrap flex-1 justify-center overflow-hidden">
-          {session.participants.filter((p) => !p.isObserver).map((p) => {
-            const voted = session.phase === "revealed" ? !!p.vote : p.hasVoted;
-            const isMe = p.id === myId;
-            return (
-              <span
-                key={p.id}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  voted
-                    ? "bg-emerald-900/50 border-emerald-700 text-emerald-300"
-                    : "bg-slate-700 border-slate-600 text-slate-300"
-                } ${isMe ? "ring-1 ring-indigo-400" : ""}`}
-              >
-                {p.isFacilitator && <span className="text-amber-400">★</span>}
-                {p.name}{isMe ? " (you)" : ""}
-                {session.phase === "revealed"
-                  ? p.vote
-                    ? <span className="font-mono font-bold text-indigo-300 ml-0.5">{p.vote}</span>
-                    : <span className="text-slate-500 ml-0.5">—</span>
-                  : voted
-                    ? <span className="text-emerald-400 ml-0.5">✓</span>
-                    : <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse inline-block ml-0.5" />
-                }
-              </span>
-            );
-          })}
-          {session.participants.filter((p) => p.isObserver).map((p) => (
-            <span key={p.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs border border-slate-700 text-slate-500 italic">
-              {p.name}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
+      <header className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
+        <h1 className="font-bold text-white text-lg">Planning Poker</h1>
+        <div className="flex items-center gap-3">
           <button
             onClick={copySessionId}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-mono font-semibold text-slate-200 transition-colors"
@@ -153,7 +119,7 @@ export default function Session({ sessionInfo, onLeave }) {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto">
+        <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto min-w-0">
           {/* Current story */}
           <div className="w-full max-w-2xl mb-6">
             {currentStory ? (
@@ -258,6 +224,15 @@ export default function Session({ sessionInfo, onLeave }) {
             </div>
           )}
         </main>
+
+        {/* Right sidebar — participants */}
+        <aside className="w-56 shrink-0 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto">
+          <ParticipantList
+            participants={session.participants}
+            phase={session.phase}
+            myId={myId}
+          />
+        </aside>
       </div>
     </div>
   );
