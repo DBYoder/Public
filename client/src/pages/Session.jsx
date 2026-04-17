@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSocket } from "../hooks/useSocket.js";
 import CardDeck from "../components/CardDeck.jsx";
 import StoryList from "../components/StoryList.jsx";
@@ -33,10 +33,28 @@ export default function Session({ sessionInfo, onLeave }) {
   const currentStory = session.stories.find(
     (s) => s.id === session.currentStoryId
   );
-  const myVote = me?.vote ?? null;
   const allVoted = session.participants
     .filter((p) => !p.isObserver)
     .every((p) => p.hasVoted || p.vote);
+
+  // Track selected card in local state — the server hides vote values during
+  // the voting phase (so opponents can't peek), which means me.vote is always
+  // null until reveal. Local state gives instant, persistent selection feedback.
+  const [localMyVote, setLocalMyVote] = useState(null);
+  const prevStoryId = useRef(session.currentStoryId);
+  const prevPhase = useRef(session.phase);
+
+  useEffect(() => {
+    const storyChanged = session.currentStoryId !== prevStoryId.current;
+    const votesReset = session.phase === "voting" && prevPhase.current === "revealed";
+    if (storyChanged || votesReset) setLocalMyVote(null);
+    prevStoryId.current = session.currentStoryId;
+    prevPhase.current = session.phase;
+  }, [session.currentStoryId, session.phase]);
+
+  // After reveal, use the server's authoritative value (in case of reconnect).
+  // During voting, use local state for instant visual feedback.
+  const myVote = session.phase === "revealed" ? (me?.vote ?? localMyVote) : localMyVote;
 
   function copySessionId() {
     navigator.clipboard.writeText(session.id);
@@ -193,7 +211,7 @@ export default function Session({ sessionInfo, onLeave }) {
                 deck={session.deck}
                 myVote={myVote}
                 phase={session.phase}
-                onVote={(card) => emit("vote", { card })}
+                onVote={(card) => { setLocalMyVote(card); emit("vote", { card }); }}
               />
             </div>
           )}
