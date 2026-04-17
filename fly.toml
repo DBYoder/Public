@@ -1,7 +1,7 @@
 # fly.toml - Fly.io deployment config for Planning Poker
 # Deploy with: fly launch (first time) or fly deploy (subsequent)
 
-app = "planning-poker"
+app = "planning-poker-dbyoder"
 primary_region = "iad"  # US East — change to nearest: lhr=London, syd=Sydney, etc.
 
 [build]
