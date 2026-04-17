@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSocket } from "../hooks/useSocket.js";
 import CardDeck from "../components/CardDeck.jsx";
-import ParticipantList from "../components/ParticipantList.jsx";
 import StoryList from "../components/StoryList.jsx";
 import ResultsPanel from "../components/ResultsPanel.jsx";
 
@@ -48,9 +47,44 @@ export default function Session({ sessionInfo, onLeave }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
-        <h1 className="font-bold text-white text-lg">Planning Poker</h1>
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700 gap-4">
+        <h1 className="font-bold text-white text-lg shrink-0">Planning Poker</h1>
+
+        {/* Participant chips */}
+        <div className="flex items-center gap-1.5 flex-wrap flex-1 justify-center overflow-hidden">
+          {session.participants.filter((p) => !p.isObserver).map((p) => {
+            const voted = session.phase === "revealed" ? !!p.vote : p.hasVoted;
+            const isMe = p.id === myId;
+            return (
+              <span
+                key={p.id}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  voted
+                    ? "bg-emerald-900/50 border-emerald-700 text-emerald-300"
+                    : "bg-slate-700 border-slate-600 text-slate-300"
+                } ${isMe ? "ring-1 ring-indigo-400" : ""}`}
+              >
+                {p.isFacilitator && <span className="text-amber-400">★</span>}
+                {p.name}{isMe ? " (you)" : ""}
+                {session.phase === "revealed"
+                  ? p.vote
+                    ? <span className="font-mono font-bold text-indigo-300 ml-0.5">{p.vote}</span>
+                    : <span className="text-slate-500 ml-0.5">—</span>
+                  : voted
+                    ? <span className="text-emerald-400 ml-0.5">✓</span>
+                    : <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse inline-block ml-0.5" />
+                }
+              </span>
+            );
+          })}
+          {session.participants.filter((p) => p.isObserver).map((p) => (
+            <span key={p.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs border border-slate-700 text-slate-500 italic">
+              {p.name}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={copySessionId}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-mono font-semibold text-slate-200 transition-colors"
@@ -79,7 +113,7 @@ export default function Session({ sessionInfo, onLeave }) {
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
-        <aside className="w-56 shrink-0 bg-slate-800 border-r border-slate-700 p-4 flex flex-col gap-6 overflow-y-auto">
+        <aside className="w-80 shrink-0 bg-slate-800 border-r border-slate-700 p-4 flex flex-col overflow-y-auto">
           <StoryList
             stories={session.stories}
             currentStoryId={session.currentStoryId}
@@ -88,13 +122,6 @@ export default function Session({ sessionInfo, onLeave }) {
             onAdd={(title) => emit("add-story", { title })}
             onBulkAdd={(stories) => emit("add-stories-bulk", { stories })}
           />
-          <div className="border-t border-slate-700 pt-4">
-            <ParticipantList
-              participants={session.participants}
-              phase={session.phase}
-              myId={myId}
-            />
-          </div>
         </aside>
 
         {/* Main */}
