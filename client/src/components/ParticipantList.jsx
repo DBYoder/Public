@@ -2,22 +2,29 @@ export default function ParticipantList({ participants, phase, myId }) {
   const voters = participants.filter((p) => !p.isObserver);
   const observers = participants.filter((p) => p.isObserver);
 
+  const votedCount = voters.filter((p) => p.hasVoted || p.vote).length;
+
   return (
     <div>
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-        Participants
-      </h3>
-      <ul className="space-y-1.5">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Participants
+        </h3>
+        {phase === "voting" && voters.length > 0 && (
+          <span className="text-xs text-slate-400">
+            {votedCount}/{voters.length}
+          </span>
+        )}
+      </div>
+
+      <ul className="space-y-2">
         {voters.map((p) => (
-          <li
-            key={p.id}
-            className="flex items-center justify-between text-sm"
-          >
-            <span className="flex items-center gap-1.5 truncate">
+          <li key={p.id} className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex items-center gap-1.5 truncate min-w-0">
               {p.isFacilitator && (
-                <span title="Facilitator" className="text-amber-400 text-xs">★</span>
+                <span title="Facilitator" className="text-amber-400 text-xs shrink-0">★</span>
               )}
-              <span className={p.id === myId ? "text-indigo-300 font-medium" : "text-slate-300"}>
+              <span className={`truncate ${p.id === myId ? "text-indigo-300 font-medium" : "text-slate-300"}`}>
                 {p.name}
                 {p.id === myId && " (you)"}
               </span>
@@ -47,23 +54,27 @@ export default function ParticipantList({ participants, phase, myId }) {
 
 function VoteIndicator({ participant, phase }) {
   if (phase === "revealed") {
-    if (participant.vote) {
-      return (
-        <span className="px-2 py-0.5 bg-indigo-600 text-white text-xs font-bold rounded font-mono">
+    return participant.vote
+      ? (
+        <span className="shrink-0 px-2 py-0.5 bg-indigo-600 text-white text-xs font-bold rounded font-mono">
           {participant.vote}
         </span>
+      ) : (
+        <span className="shrink-0 text-xs text-slate-500 italic">skipped</span>
       );
-    }
-    return <span className="text-xs text-slate-500">—</span>;
   }
 
-  // Voting phase — only show has-voted status
-  if (participant.hasVoted) {
-    return (
-      <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Voted" />
-    );
-  }
-  return (
-    <span className="w-2 h-2 rounded-full bg-slate-600 inline-block" title="Waiting..." />
+  // Voting phase
+  const voted = participant.hasVoted || participant.vote;
+  return voted ? (
+    <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-emerald-900/60 border border-emerald-700 text-emerald-400 text-xs font-medium rounded-full">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+      Voted
+    </span>
+  ) : (
+    <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-slate-700/60 border border-slate-600 text-slate-400 text-xs font-medium rounded-full">
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block animate-pulse" />
+      Waiting
+    </span>
   );
 }
