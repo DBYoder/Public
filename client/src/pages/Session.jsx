@@ -8,6 +8,29 @@ export default function Session({ sessionInfo, onLeave }) {
   const { session, error, connected, myId, emit } = useSocket(sessionInfo);
   const [copied, setCopied] = useState(false);
 
+  // ALL hooks must be declared unconditionally before any early returns.
+  // Placing them after a conditional return violates React's rules of hooks
+  // and causes state (including localMyVote) to reset on reconnects.
+
+  // Track the card the current user picked in local state.
+  // The server hides vote values during voting phase so opponents can't peek,
+  // which means me.vote is always null until reveal. Local state gives instant,
+  // persistent selection feedback regardless of server round-trips.
+  const [localMyVote, setLocalMyVote] = useState(null);
+  const prevStoryId = useRef(null);
+  const prevPhase = useRef(null);
+
+  useEffect(() => {
+    if (!session) return;
+    const storyChanged = session.currentStoryId !== prevStoryId.current;
+    const votesReset =
+      session.phase === "voting" && prevPhase.current === "revealed";
+    if (storyChanged || votesReset) setLocalMyVote(null);
+    prevStoryId.current = session.currentStoryId;
+    prevPhase.current = session.phase;
+  }, [session?.currentStoryId, session?.phase]);
+
+  // ── Early return for loading / error state ──────────────────────────────
   if (!connected || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -28,6 +51,7 @@ export default function Session({ sessionInfo, onLeave }) {
     );
   }
 
+  // ── Derived state ────────────────────────────────────────────────────────
   const me = session.participants.find((p) => p.id === myId);
   const isFacilitator = session.facilitatorId === myId;
   const currentStory = session.stories.find(
@@ -37,24 +61,10 @@ export default function Session({ sessionInfo, onLeave }) {
     .filter((p) => !p.isObserver)
     .every((p) => p.hasVoted || p.vote);
 
-  // Track selected card in local state — the server hides vote values during
-  // the voting phase (so opponents can't peek), which means me.vote is always
-  // null until reveal. Local state gives instant, persistent selection feedback.
-  const [localMyVote, setLocalMyVote] = useState(null);
-  const prevStoryId = useRef(session.currentStoryId);
-  const prevPhase = useRef(session.phase);
-
-  useEffect(() => {
-    const storyChanged = session.currentStoryId !== prevStoryId.current;
-    const votesReset = session.phase === "voting" && prevPhase.current === "revealed";
-    if (storyChanged || votesReset) setLocalMyVote(null);
-    prevStoryId.current = session.currentStoryId;
-    prevPhase.current = session.phase;
-  }, [session.currentStoryId, session.phase]);
-
-  // After reveal, use the server's authoritative value (in case of reconnect).
-  // During voting, use local state for instant visual feedback.
-  const myVote = session.phase === "revealed" ? (me?.vote ?? localMyVote) : localMyVote;
+  // After reveal use the server's authoritative value (handles reconnects).
+  // During voting use local state so selection is instant and stays visible.
+  const myVote =
+    session.phase === "revealed" ? (me?.vote ?? localMyVote) : localMyVote;
 
   function copySessionId() {
     navigator.clipboard.writeText(session.id);
@@ -211,7 +221,10 @@ export default function Session({ sessionInfo, onLeave }) {
                 deck={session.deck}
                 myVote={myVote}
                 phase={session.phase}
-                onVote={(card) => { setLocalMyVote(card); emit("vote", { card }); }}
+                onVote={(card) => {
+                  setLocalMyVote(card);
+                  emit("vote", { card });
+                }}
               />
             </div>
           )}
