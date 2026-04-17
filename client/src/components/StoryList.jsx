@@ -54,6 +54,11 @@ export default function StoryList({
                     : "text-slate-300 border border-transparent"
                 }`}
               >
+                {story.storyNumber && (
+                  <span className="text-xs font-mono text-indigo-400 block">
+                    {story.storyNumber}
+                  </span>
+                )}
                 <span className="truncate block">{story.title}</span>
                 {story.finalEstimate && (
                   <span className="text-xs font-mono text-emerald-400">

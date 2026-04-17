@@ -104,9 +104,16 @@ export default function Session({ sessionInfo, onLeave }) {
             {currentStory ? (
               <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-white leading-snug">
-                    {currentStory.title}
-                  </h2>
+                  <div>
+                    {currentStory.storyNumber && (
+                      <p className="text-xs font-mono text-indigo-400 mb-0.5">
+                        {currentStory.storyNumber}
+                      </p>
+                    )}
+                    <h2 className="text-lg font-semibold text-white leading-snug">
+                      {currentStory.title}
+                    </h2>
+                  </div>
                   {currentStory.finalEstimate && (
                     <span className="shrink-0 px-2 py-0.5 bg-emerald-700 text-emerald-200 text-xs rounded font-mono">
                       Final: {currentStory.finalEstimate}

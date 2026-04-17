@@ -35,10 +35,9 @@ function parseCsv(text) {
   return rows;
 }
 
-const EXPECTED_HEADERS = ["title", "description", "acceptance_criteria"];
-const TEMPLATE_CSV = `title,description,acceptance_criteria
-"User login","As a user I want to log in so I can access my account","Given valid credentials, when I submit the form, then I am redirected to the dashboard"
-"Password reset","As a user I want to reset my password via email","Given I enter my email, when I click reset, then I receive a reset link within 1 minute"
+const TEMPLATE_CSV = `story_number,title,description,acceptance_criteria
+"US-001","User login","As a user I want to log in so I can access my account","Given valid credentials, when I submit the form, then I am redirected to the dashboard"
+"US-002","Password reset","As a user I want to reset my password via email","Given I enter my email, when I click reset, then I receive a reset link within 1 minute"
 `;
 
 function downloadTemplate() {
@@ -97,6 +96,9 @@ export default function CsvUpload({ onImport, onClose }) {
       return;
     }
 
+    const storyNumIdx = headers.findIndex((h) =>
+      ["story_number", "story number", "story#", "number", "id"].includes(h)
+    );
     const descIdx = headers.findIndex((h) => h === "description");
     const acIdx = headers.findIndex((h) =>
       ["acceptance_criteria", "acceptance criteria", "ac"].includes(h)
@@ -105,6 +107,7 @@ export default function CsvUpload({ onImport, onClose }) {
     const stories = rows
       .slice(1)
       .map((row) => ({
+        storyNumber: storyNumIdx !== -1 ? row[storyNumIdx] || "" : "",
         title: row[titleIdx] || "",
         description: descIdx !== -1 ? row[descIdx] || "" : "",
         acceptanceCriteria: acIdx !== -1 ? row[acIdx] || "" : "",
@@ -145,7 +148,7 @@ export default function CsvUpload({ onImport, onClose }) {
             <div>
               <p className="text-sm font-medium text-slate-200">Need a template?</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                Columns: <span className="font-mono">title, description, acceptance_criteria</span>
+                Columns: <span className="font-mono">story_number, title, description, acceptance_criteria</span>
               </p>
             </div>
             <button
@@ -208,9 +211,10 @@ export default function CsvUpload({ onImport, onClose }) {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-slate-700 text-slate-300 text-left">
-                      <th className="px-3 py-2 font-medium w-1/3">Title</th>
-                      <th className="px-3 py-2 font-medium w-1/3">Description</th>
-                      <th className="px-3 py-2 font-medium w-1/3">Acceptance Criteria</th>
+                      <th className="px-3 py-2 font-medium w-24">#</th>
+                      <th className="px-3 py-2 font-medium">Title</th>
+                      <th className="px-3 py-2 font-medium">Description</th>
+                      <th className="px-3 py-2 font-medium">Acceptance Criteria</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -221,6 +225,11 @@ export default function CsvUpload({ onImport, onClose }) {
                           i % 2 === 0 ? "bg-slate-800" : "bg-slate-800/50"
                         }`}
                       >
+                        <td className="px-3 py-2 font-mono text-indigo-400 text-xs">
+                          {story.storyNumber || (
+                            <span className="italic text-slate-600">—</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-white font-medium">
                           {story.title}
                         </td>

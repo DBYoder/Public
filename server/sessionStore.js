@@ -107,11 +107,12 @@ function resetVotes(sessionId) {
   return session;
 }
 
-function addStory(sessionId, { title, description = "", acceptanceCriteria = "" }) {
+function addStory(sessionId, { title, storyNumber = "", description = "", acceptanceCriteria = "" }) {
   const session = sessions.get(sessionId);
   if (!session) return null;
   const story = {
     id: nanoid(),
+    storyNumber,
     title,
     description,
     acceptanceCriteria,
@@ -125,10 +126,11 @@ function addStory(sessionId, { title, description = "", acceptanceCriteria = "" 
 function addStoriesBulk(sessionId, stories) {
   const session = sessions.get(sessionId);
   if (!session) return null;
-  for (const { title, description = "", acceptanceCriteria = "" } of stories) {
+  for (const { title, storyNumber = "", description = "", acceptanceCriteria = "" } of stories) {
     if (!title?.trim()) continue;
     const story = {
       id: nanoid(),
+      storyNumber: storyNumber.trim(),
       title: title.trim(),
       description: description.trim(),
       acceptanceCriteria: acceptanceCriteria.trim(),
