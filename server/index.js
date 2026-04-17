@@ -6,9 +6,9 @@ const path = require("path");
 const {
   createSession,
   getSession,
-  deleteSession,
   addParticipant,
-  removeParticipant,
+  reconnectParticipant,
+  markParticipantOffline,
   castVote,
   revealVotes,
   resetVotes,
@@ -17,6 +17,7 @@ const {
   selectStory,
   setEstimate,
   publicState,
+  startCleanupJob,
 } = require("./sessionStore");
 const { DECKS } = require("./decks");
 
@@ -91,7 +92,15 @@ io.on("connection", (socket) => {
           socket.emit("error", { message: "Session not found. Check your session ID." });
           return;
         }
-        session = addParticipant(id, { id: socket.id, name, isObserver: !!isObserver });
+
+        // Try to reconnect as an existing offline participant with the same name.
+        // This handles page-refresh / network-drop without losing vote state.
+        const reconnected = reconnectParticipant(id, name, socket.id);
+        if (reconnected) {
+          session = reconnected;
+        } else {
+          session = addParticipant(id, { id: socket.id, name, isObserver: !!isObserver });
+        }
       }
       currentSessionId = session.id;
       socket.join(session.id);
@@ -161,18 +170,19 @@ io.on("connection", (socket) => {
   });
 
   // --- Disconnect ---
+  // Soft-delete: mark the participant offline rather than removing them.
+  // The session lives on so reconnecting participants rejoin their existing slot.
+  // A background job (startCleanupJob) purges sessions where everyone has been
+  // offline for more than 2 hours.
   socket.on("disconnect", () => {
     if (!currentSessionId) return;
-    const updated = removeParticipant(currentSessionId, socket.id);
-    if (updated) {
-      if (updated.participants.length === 0) {
-        deleteSession(currentSessionId);
-      } else {
-        broadcast(updated);
-      }
-    }
+    const updated = markParticipantOffline(currentSessionId, socket.id);
+    if (updated) broadcast(updated);
   });
 });
+
+// Start background session cleanup job
+startCleanupJob();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

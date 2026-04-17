@@ -58,8 +58,11 @@ export default function Session({ sessionInfo, onLeave }) {
   const currentStory = session.stories.find(
     (s) => s.id === session.currentStoryId
   );
+  // Only require online non-observers to have voted before enabling reveal.
+  // Offline participants keep their existing vote (or are skipped if they
+  // disconnected before voting), so they shouldn't block the whole room.
   const allVoted = session.participants
-    .filter((p) => !p.isObserver)
+    .filter((p) => !p.isObserver && p.online !== false)
     .every((p) => p.hasVoted || p.vote);
 
   // After reveal use the server's authoritative value (handles reconnects).

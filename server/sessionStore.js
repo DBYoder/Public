@@ -6,6 +6,10 @@ const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
 // Map<sessionId, Session>
 const sessions = new Map();
 
+// Sessions where all participants have been offline for longer than this are
+// eligible for cleanup. Default: 2 hours.
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+
 function generateId() {
   let id;
   do {
@@ -30,6 +34,8 @@ function createSession({ facilitatorId, facilitatorName, deck }) {
         vote: null,
         isObserver: false,
         isFacilitator: true,
+        online: true,
+        disconnectedAt: null,
       },
     ],
     phase: "voting",
@@ -49,35 +55,65 @@ function deleteSession(id) {
 function addParticipant(sessionId, { id, name, isObserver }) {
   const session = sessions.get(sessionId);
   if (!session) return null;
-  // Reconnect if already exists
+  // Same socket ID reconnect (rare but safe to handle)
   const existing = session.participants.find((p) => p.id === id);
-  if (existing) return session;
+  if (existing) {
+    existing.online = true;
+    existing.disconnectedAt = null;
+    return session;
+  }
   session.participants.push({
     id,
     name,
     vote: null,
     isObserver,
     isFacilitator: false,
+    online: true,
+    disconnectedAt: null,
   });
   return session;
 }
 
-function removeParticipant(sessionId, participantId) {
+/**
+ * Attempt to reconnect an offline participant by name match.
+ * If found, updates their socket ID, marks them online, and updates
+ * facilitatorId if they were the facilitator.
+ * Returns the session on success, null if no offline match was found.
+ */
+function reconnectParticipant(sessionId, name, newSocketId) {
   const session = sessions.get(sessionId);
   if (!session) return null;
-  session.participants = session.participants.filter(
-    (p) => p.id !== participantId
+
+  // Case-insensitive name match against offline participants only
+  const existing = session.participants.find(
+    (p) => !p.online && p.name.toLowerCase() === name.trim().toLowerCase()
   );
-  // If facilitator left, promote next non-observer participant
-  if (
-    session.facilitatorId === participantId &&
-    session.participants.length > 0
-  ) {
-    const next = session.participants.find((p) => !p.isObserver);
-    if (next) {
-      next.isFacilitator = true;
-      session.facilitatorId = next.id;
-    }
+  if (!existing) return null;
+
+  const oldId = existing.id;
+  existing.id = newSocketId;
+  existing.online = true;
+  existing.disconnectedAt = null;
+
+  // Keep facilitatorId in sync
+  if (session.facilitatorId === oldId) {
+    session.facilitatorId = newSocketId;
+  }
+
+  return session;
+}
+
+/**
+ * Soft-delete: mark a participant as offline instead of removing them.
+ * Their vote and story contributions are preserved.
+ */
+function markParticipantOffline(sessionId, socketId) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  const participant = session.participants.find((p) => p.id === socketId);
+  if (participant) {
+    participant.online = false;
+    participant.disconnectedAt = new Date();
   }
   return session;
 }
@@ -178,8 +214,39 @@ function publicState(session) {
       isFacilitator: p.isFacilitator,
       hasVoted: p.vote !== null,
       vote: session.phase === "revealed" ? p.vote : null,
+      online: p.online,
     })),
   };
+}
+
+/**
+ * Purge sessions where every participant has been offline for longer than
+ * SESSION_TTL_MS. Called on an interval — not invoked per-request.
+ */
+function cleanupStaleSessions() {
+  const now = Date.now();
+  for (const [id, session] of sessions) {
+    const allOffline = session.participants.every((p) => !p.online);
+    if (!allOffline) continue;
+
+    // Find the most-recent disconnect time; if all are null use now
+    const latestDisconnect = session.participants.reduce((latest, p) => {
+      const t = p.disconnectedAt ? p.disconnectedAt.getTime() : 0;
+      return Math.max(latest, t);
+    }, 0);
+
+    if (latestDisconnect > 0 && now - latestDisconnect > SESSION_TTL_MS) {
+      console.log(`[cleanup] Deleting stale session ${id}`);
+      sessions.delete(id);
+    }
+  }
+}
+
+/** Start the background cleanup job (call once at server startup). */
+function startCleanupJob() {
+  // Run every 10 minutes
+  setInterval(cleanupStaleSessions, 10 * 60 * 1000);
+  console.log("[cleanup] Session cleanup job started (runs every 10 min, TTL 2 h)");
 }
 
 module.exports = {
@@ -187,7 +254,8 @@ module.exports = {
   getSession,
   deleteSession,
   addParticipant,
-  removeParticipant,
+  reconnectParticipant,
+  markParticipantOffline,
   castVote,
   revealVotes,
   resetVotes,
@@ -196,4 +264,5 @@ module.exports = {
   selectStory,
   setEstimate,
   publicState,
+  startCleanupJob,
 };
