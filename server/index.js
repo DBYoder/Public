@@ -122,6 +122,7 @@ io.on("connection", (socket) => {
     if (!currentSessionId) return;
     const session = getSession(currentSessionId);
     if (!session || session.phase === "revealed") return;
+    if (!DECKS[session.deck]?.cards.includes(card)) return;
     const updated = castVote(currentSessionId, socket.id, card);
     if (updated) broadcast(updated);
   });
@@ -172,6 +173,7 @@ io.on("connection", (socket) => {
   socket.on("set-estimate", ({ storyId, estimate }) => {
     const session = guardFacilitator(currentSessionId);
     if (!session) return;
+    if (!DECKS[session.deck]?.cards.includes(estimate)) return;
     const updated = setEstimate(currentSessionId, storyId, estimate);
     if (updated) broadcast(updated);
   });
