@@ -86,9 +86,9 @@ export default function Session({ sessionInfo, decks, onLeave }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
+      <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-slate-800 border-b border-slate-700">
         <h1 className="font-bold text-white text-lg">Planning Poker</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={copyJoinLink}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-mono font-semibold text-slate-200 transition-colors"
@@ -141,9 +141,9 @@ export default function Session({ sessionInfo, decks, onLeave }) {
       )}
 
       {/* Body */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-80 shrink-0 bg-slate-800 border-r border-slate-700 p-4 flex flex-col overflow-y-auto">
+        <aside className="order-2 lg:order-none w-full lg:w-80 shrink-0 max-h-72 lg:max-h-none bg-slate-800 border-b lg:border-b-0 lg:border-r border-slate-700 p-4 flex flex-col overflow-y-auto">
           <StoryList
             stories={session.stories}
             currentStoryId={session.currentStoryId}
@@ -157,7 +157,7 @@ export default function Session({ sessionInfo, decks, onLeave }) {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto min-w-0">
+        <main className="order-1 lg:order-none flex-1 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto min-w-0">
           {/* Current story */}
           <div className="w-full max-w-2xl mb-6">
             {currentStory ? (
@@ -264,7 +264,7 @@ export default function Session({ sessionInfo, decks, onLeave }) {
         </main>
 
         {/* Right sidebar — participants */}
-        <aside className="w-56 shrink-0 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto">
+        <aside className="order-3 lg:order-none w-full lg:w-56 shrink-0 max-h-72 lg:max-h-none bg-slate-800 border-t lg:border-t-0 lg:border-l border-slate-700 p-4 overflow-y-auto">
           <ParticipantList
             participants={session.participants}
             phase={session.phase}
