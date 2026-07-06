@@ -1,6 +1,47 @@
 import { useState } from "react";
 import CsvUpload from "./CsvUpload.jsx";
 
+// Combine a story's separate fields into a single text field for export.
+function combineStoryText(story) {
+  const parts = [story.title];
+  if (story.description) parts.push(story.description);
+  if (story.acceptanceCriteria) {
+    parts.push(`Acceptance Criteria: ${story.acceptanceCriteria}`);
+  }
+  return parts.join("\n\n");
+}
+
+function escapeCsvField(value) {
+  const str = String(value ?? "");
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function buildStoriesCsv(stories) {
+  const header = ["story_number", "story", "final_estimate"];
+  const rows = stories.map((story) => [
+    story.storyNumber || "",
+    combineStoryText(story),
+    story.finalEstimate || "",
+  ]);
+  return [header, ...rows]
+    .map((row) => row.map(escapeCsvField).join(","))
+    .join("\n");
+}
+
+function downloadStoriesCsv(stories) {
+  const csv = buildStoriesCsv(stories);
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "stories-export.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function StoryList({
   stories,
   currentStoryId,
@@ -25,15 +66,26 @@ export default function StoryList({
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           Stories
         </h3>
-        {isFacilitator && (
-          <button
-            onClick={() => setShowCsvUpload(true)}
-            title="Import from CSV"
-            className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
-          >
-            CSV
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {stories.length > 0 && (
+            <button
+              onClick={() => downloadStoriesCsv(stories)}
+              title="Export stories as CSV"
+              className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+            >
+              Export
+            </button>
+          )}
+          {isFacilitator && (
+            <button
+              onClick={() => setShowCsvUpload(true)}
+              title="Import from CSV"
+              className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+            >
+              CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress summary */}
