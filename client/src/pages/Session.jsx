@@ -150,6 +150,8 @@ export default function Session({ sessionInfo, decks, onLeave }) {
             onSelect={(id) => emit("select-story", { storyId: id })}
             onAdd={(title) => emit("add-story", { title })}
             onBulkAdd={(stories) => emit("add-stories-bulk", { stories })}
+            onEdit={(storyId, updates) => emit("edit-story", { storyId, ...updates })}
+            onDelete={(storyId) => emit("delete-story", { storyId })}
           />
         </aside>
 

@@ -203,6 +203,34 @@ function addStoriesBulk(sessionId, stories) {
   return session;
 }
 
+function editStory(sessionId, storyId, { title, storyNumber, description, acceptanceCriteria }) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  const story = session.stories.find((s) => s.id === storyId);
+  if (!story) return session;
+  if (title !== undefined && title.trim()) {
+    story.title = truncate(title, MAX_TITLE_LENGTH);
+  }
+  if (storyNumber !== undefined) story.storyNumber = truncate(storyNumber, MAX_STORY_NUMBER_LENGTH);
+  if (description !== undefined) story.description = truncate(description, MAX_TEXT_LENGTH);
+  if (acceptanceCriteria !== undefined) {
+    story.acceptanceCriteria = truncate(acceptanceCriteria, MAX_TEXT_LENGTH);
+  }
+  return session;
+}
+
+function deleteStory(sessionId, storyId) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  session.stories = session.stories.filter((s) => s.id !== storyId);
+  if (session.currentStoryId === storyId) {
+    session.currentStoryId = session.stories[0]?.id || null;
+    session.phase = "voting";
+    session.participants.forEach((p) => (p.vote = null));
+  }
+  return session;
+}
+
 function selectStory(sessionId, storyId) {
   const session = sessions.get(sessionId);
   if (!session) return null;
@@ -286,6 +314,8 @@ module.exports = {
   resetVotes,
   addStory,
   addStoriesBulk,
+  editStory,
+  deleteStory,
   selectStory,
   setEstimate,
   publicState,

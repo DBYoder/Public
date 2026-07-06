@@ -15,6 +15,8 @@ const {
   resetVotes,
   addStory,
   addStoriesBulk,
+  editStory,
+  deleteStory,
   selectStory,
   setEstimate,
   publicState,
@@ -162,6 +164,22 @@ io.on("connection", (socket) => {
     if (!session) return;
     if (!Array.isArray(stories) || stories.length === 0) return;
     const updated = addStoriesBulk(currentSessionId, stories);
+    if (updated) broadcast(updated);
+  });
+
+  // --- Edit story ---
+  socket.on("edit-story", ({ storyId, title, storyNumber, description, acceptanceCriteria }) => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    const updated = editStory(currentSessionId, storyId, { title, storyNumber, description, acceptanceCriteria });
+    if (updated) broadcast(updated);
+  });
+
+  // --- Delete story ---
+  socket.on("delete-story", ({ storyId }) => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    const updated = deleteStory(currentSessionId, storyId);
     if (updated) broadcast(updated);
   });
 
