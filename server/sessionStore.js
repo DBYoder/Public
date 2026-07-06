@@ -1,7 +1,22 @@
+const crypto = require("crypto");
 const { customAlphabet } = require("nanoid");
 const { DECKS } = require("./decks");
 
 const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
+
+// Caps on client-supplied text so a single participant can't bloat session
+// memory with arbitrarily large names/stories.
+const MAX_NAME_LENGTH = 50;
+const MAX_STORY_NUMBER_LENGTH = 50;
+const MAX_TITLE_LENGTH = 200;
+const MAX_TEXT_LENGTH = 5000;
+const MAX_BULK_STORIES = 500;
+
+function truncate(value, maxLength) {
+  return String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
+}
 
 // Map<sessionId, Session>
 const sessions = new Map();
@@ -30,12 +45,13 @@ function createSession({ facilitatorId, facilitatorName, deck }) {
     participants: [
       {
         id: facilitatorId,
-        name: facilitatorName,
+        name: truncate(facilitatorName, MAX_NAME_LENGTH),
         vote: null,
         isObserver: false,
         isFacilitator: true,
         online: true,
         disconnectedAt: null,
+        reconnectToken: crypto.randomUUID(),
       },
     ],
     phase: "voting",
@@ -64,29 +80,35 @@ function addParticipant(sessionId, { id, name, isObserver }) {
   }
   session.participants.push({
     id,
-    name,
+    name: truncate(name, MAX_NAME_LENGTH),
     vote: null,
     isObserver,
     isFacilitator: false,
     online: true,
     disconnectedAt: null,
+    reconnectToken: crypto.randomUUID(),
   });
   return session;
 }
 
 /**
- * Attempt to reconnect an offline participant by name match.
- * If found, updates their socket ID, marks them online, and updates
- * facilitatorId if they were the facilitator.
- * Returns the session on success, null if no offline match was found.
+ * Attempt to reconnect an offline participant. Requires both a case-insensitive
+ * name match AND the reconnect token issued to that participant on their
+ * original join — name alone is not proof of identity, since anyone in the
+ * room can see another participant's display name (including the
+ * facilitator's) and would otherwise be able to steal their slot, and with it
+ * facilitator privileges, during a brief disconnect.
+ * Returns the session on success, null if no matching offline participant was found.
  */
-function reconnectParticipant(sessionId, name, newSocketId) {
+function reconnectParticipant(sessionId, name, newSocketId, token) {
   const session = sessions.get(sessionId);
-  if (!session) return null;
+  if (!session || !token) return null;
 
-  // Case-insensitive name match against offline participants only
   const existing = session.participants.find(
-    (p) => !p.online && p.name.toLowerCase() === name.trim().toLowerCase()
+    (p) =>
+      !p.online &&
+      p.name.toLowerCase() === name.trim().toLowerCase() &&
+      p.reconnectToken === token
   );
   if (!existing) return null;
 
@@ -148,10 +170,10 @@ function addStory(sessionId, { title, storyNumber = "", description = "", accept
   if (!session) return null;
   const story = {
     id: nanoid(),
-    storyNumber,
-    title,
-    description,
-    acceptanceCriteria,
+    storyNumber: truncate(storyNumber, MAX_STORY_NUMBER_LENGTH),
+    title: truncate(title, MAX_TITLE_LENGTH),
+    description: truncate(description, MAX_TEXT_LENGTH),
+    acceptanceCriteria: truncate(acceptanceCriteria, MAX_TEXT_LENGTH),
     finalEstimate: null,
   };
   session.stories.push(story);
@@ -162,18 +184,49 @@ function addStory(sessionId, { title, storyNumber = "", description = "", accept
 function addStoriesBulk(sessionId, stories) {
   const session = sessions.get(sessionId);
   if (!session) return null;
-  for (const { title, storyNumber = "", description = "", acceptanceCriteria = "" } of stories) {
+  for (const { title, storyNumber = "", description = "", acceptanceCriteria = "" } of stories.slice(
+    0,
+    MAX_BULK_STORIES
+  )) {
     if (!title?.trim()) continue;
     const story = {
       id: nanoid(),
-      storyNumber: storyNumber.trim(),
-      title: title.trim(),
-      description: description.trim(),
-      acceptanceCriteria: acceptanceCriteria.trim(),
+      storyNumber: truncate(storyNumber, MAX_STORY_NUMBER_LENGTH),
+      title: truncate(title, MAX_TITLE_LENGTH),
+      description: truncate(description, MAX_TEXT_LENGTH),
+      acceptanceCriteria: truncate(acceptanceCriteria, MAX_TEXT_LENGTH),
       finalEstimate: null,
     };
     session.stories.push(story);
     if (!session.currentStoryId) session.currentStoryId = story.id;
+  }
+  return session;
+}
+
+function editStory(sessionId, storyId, { title, storyNumber, description, acceptanceCriteria }) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  const story = session.stories.find((s) => s.id === storyId);
+  if (!story) return session;
+  if (title !== undefined && title.trim()) {
+    story.title = truncate(title, MAX_TITLE_LENGTH);
+  }
+  if (storyNumber !== undefined) story.storyNumber = truncate(storyNumber, MAX_STORY_NUMBER_LENGTH);
+  if (description !== undefined) story.description = truncate(description, MAX_TEXT_LENGTH);
+  if (acceptanceCriteria !== undefined) {
+    story.acceptanceCriteria = truncate(acceptanceCriteria, MAX_TEXT_LENGTH);
+  }
+  return session;
+}
+
+function deleteStory(sessionId, storyId) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  session.stories = session.stories.filter((s) => s.id !== storyId);
+  if (session.currentStoryId === storyId) {
+    session.currentStoryId = session.stories[0]?.id || null;
+    session.phase = "voting";
+    session.participants.forEach((p) => (p.vote = null));
   }
   return session;
 }
@@ -219,6 +272,29 @@ function publicState(session) {
   };
 }
 
+/** Return a plain-object snapshot of all sessions, suitable for JSON.stringify. */
+function getSnapshot() {
+  return Array.from(sessions.values());
+}
+
+/**
+ * Reload sessions from a previously-saved snapshot (see getSnapshot). Every
+ * participant is marked offline first: a snapshot only survives a process
+ * restart, and a restart invalidates every live socket id, so there's no
+ * real connection to consider "online" until each participant reconnects
+ * through the normal name+token flow (see reconnectParticipant).
+ */
+function restoreSnapshot(snapshot) {
+  const now = new Date();
+  for (const session of snapshot) {
+    session.participants.forEach((p) => {
+      p.online = false;
+      p.disconnectedAt = p.disconnectedAt ? new Date(p.disconnectedAt) : now;
+    });
+    sessions.set(session.id, session);
+  }
+}
+
 /**
  * Purge sessions where every participant has been offline for longer than
  * SESSION_TTL_MS. Called on an interval — not invoked per-request.
@@ -261,8 +337,12 @@ module.exports = {
   resetVotes,
   addStory,
   addStoriesBulk,
+  editStory,
+  deleteStory,
   selectStory,
   setEstimate,
   publicState,
   startCleanupJob,
+  getSnapshot,
+  restoreSnapshot,
 };

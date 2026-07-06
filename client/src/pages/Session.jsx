@@ -5,7 +5,7 @@ import StoryList from "../components/StoryList.jsx";
 import ResultsPanel from "../components/ResultsPanel.jsx";
 import ParticipantList from "../components/ParticipantList.jsx";
 
-export default function Session({ sessionInfo, onLeave }) {
+export default function Session({ sessionInfo, decks, onLeave }) {
   const { session, error, connected, myId, emit, sessionEnded } = useSocket(sessionInfo);
   const [copied, setCopied] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -76,8 +76,9 @@ export default function Session({ sessionInfo, onLeave }) {
   const myVote =
     session.phase === "revealed" ? (me?.vote ?? localMyVote) : localMyVote;
 
-  function copySessionId() {
-    navigator.clipboard.writeText(session.id);
+  function copyJoinLink() {
+    const url = `${window.location.origin}${window.location.pathname}?join=${session.id}`;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -85,17 +86,17 @@ export default function Session({ sessionInfo, onLeave }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
+      <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-slate-800 border-b border-slate-700">
         <h1 className="font-bold text-white text-lg">Planning Poker</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
-            onClick={copySessionId}
+            onClick={copyJoinLink}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-mono font-semibold text-slate-200 transition-colors"
-            title="Copy session ID"
+            title="Copy invite link"
           >
             {session.id}
             <span className="text-xs text-slate-400 font-sans">
-              {copied ? "✓ Copied" : "Copy"}
+              {copied ? "✓ Copied link" : "Copy link"}
             </span>
           </button>
           {isFacilitator && (
@@ -140,9 +141,9 @@ export default function Session({ sessionInfo, onLeave }) {
       )}
 
       {/* Body */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-80 shrink-0 bg-slate-800 border-r border-slate-700 p-4 flex flex-col overflow-y-auto">
+        <aside className="order-2 lg:order-none w-full lg:w-80 shrink-0 max-h-72 lg:max-h-none bg-slate-800 border-b lg:border-b-0 lg:border-r border-slate-700 p-4 flex flex-col overflow-y-auto">
           <StoryList
             stories={session.stories}
             currentStoryId={session.currentStoryId}
@@ -150,11 +151,13 @@ export default function Session({ sessionInfo, onLeave }) {
             onSelect={(id) => emit("select-story", { storyId: id })}
             onAdd={(title) => emit("add-story", { title })}
             onBulkAdd={(stories) => emit("add-stories-bulk", { stories })}
+            onEdit={(storyId, updates) => emit("edit-story", { storyId, ...updates })}
+            onDelete={(storyId) => emit("delete-story", { storyId })}
           />
         </aside>
 
         {/* Main */}
-        <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto min-w-0">
+        <main className="order-1 lg:order-none flex-1 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto min-w-0">
           {/* Current story */}
           <div className="w-full max-w-2xl mb-6">
             {currentStory ? (
@@ -219,7 +222,7 @@ export default function Session({ sessionInfo, onLeave }) {
                   : "Pick a card"}
               </p>
               <CardDeck
-                deck={session.deck}
+                cards={decks[session.deck]?.cards || []}
                 myVote={myVote}
                 phase={session.phase}
                 onVote={(card) => {
@@ -248,7 +251,7 @@ export default function Session({ sessionInfo, onLeave }) {
             <div className="w-full max-w-2xl mt-4">
               <ResultsPanel
                 participants={session.participants}
-                deck={session.deck}
+                deckInfo={decks[session.deck]}
                 currentStoryId={session.currentStoryId}
                 isFacilitator={isFacilitator}
                 onSetEstimate={(storyId, estimate) =>
@@ -261,7 +264,7 @@ export default function Session({ sessionInfo, onLeave }) {
         </main>
 
         {/* Right sidebar — participants */}
-        <aside className="w-56 shrink-0 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto">
+        <aside className="order-3 lg:order-none w-full lg:w-56 shrink-0 max-h-72 lg:max-h-none bg-slate-800 border-t lg:border-t-0 lg:border-l border-slate-700 p-4 overflow-y-auto">
           <ParticipantList
             participants={session.participants}
             phase={session.phase}

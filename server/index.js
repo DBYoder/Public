@@ -15,24 +15,29 @@ const {
   resetVotes,
   addStory,
   addStoriesBulk,
+  editStory,
+  deleteStory,
   selectStory,
   setEstimate,
   publicState,
   startCleanupJob,
 } = require("./sessionStore");
 const { DECKS } = require("./decks");
+const { startPersistence, writeSnapshot } = require("./persistence");
 
 const app = express();
 const server = http.createServer(app);
 
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin: CLIENT_ORIGIN,
     methods: ["GET", "POST"],
   },
 });
 
-app.use(cors());
+app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.json());
 
 // Serve built client in production
@@ -53,6 +58,8 @@ app.get("/api/decks", (_req, res) => {
       key,
       label: val.label,
       cards: val.cards,
+      special: val.special,
+      isNonNumeric: !!val.isNonNumeric,
     }))
   );
 });
@@ -81,7 +88,7 @@ io.on("connection", (socket) => {
   }
 
   // --- Join ---
-  socket.on("join", ({ sessionId, name, isObserver, createNew, deck }) => {
+  socket.on("join", ({ sessionId, name, isObserver, createNew, deck, reconnectToken }) => {
     try {
       let session;
       if (createNew) {
@@ -94,9 +101,13 @@ io.on("connection", (socket) => {
           return;
         }
 
-        // Try to reconnect as an existing offline participant with the same name.
-        // This handles page-refresh / network-drop without losing vote state.
-        const reconnected = reconnectParticipant(id, name, socket.id);
+        // Try to reconnect as an existing offline participant with the same
+        // name AND reconnect token. This handles page-refresh / network-drop
+        // without losing vote state, while requiring proof of identity so a
+        // name match alone can't be used to steal someone else's slot.
+        const reconnected = reconnectToken
+          ? reconnectParticipant(id, name, socket.id, reconnectToken)
+          : null;
         if (reconnected) {
           session = reconnected;
         } else {
@@ -105,6 +116,8 @@ io.on("connection", (socket) => {
       }
       currentSessionId = session.id;
       socket.join(session.id);
+      const me = session.participants.find((p) => p.id === socket.id);
+      socket.emit("joined", { reconnectToken: me?.reconnectToken });
       broadcast(session);
     } catch (err) {
       socket.emit("error", { message: err.message });
@@ -116,6 +129,7 @@ io.on("connection", (socket) => {
     if (!currentSessionId) return;
     const session = getSession(currentSessionId);
     if (!session || session.phase === "revealed") return;
+    if (!DECKS[session.deck]?.cards.includes(card)) return;
     const updated = castVote(currentSessionId, socket.id, card);
     if (updated) broadcast(updated);
   });
@@ -154,6 +168,22 @@ io.on("connection", (socket) => {
     if (updated) broadcast(updated);
   });
 
+  // --- Edit story ---
+  socket.on("edit-story", ({ storyId, title, storyNumber, description, acceptanceCriteria }) => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    const updated = editStory(currentSessionId, storyId, { title, storyNumber, description, acceptanceCriteria });
+    if (updated) broadcast(updated);
+  });
+
+  // --- Delete story ---
+  socket.on("delete-story", ({ storyId }) => {
+    const session = guardFacilitator(currentSessionId);
+    if (!session) return;
+    const updated = deleteStory(currentSessionId, storyId);
+    if (updated) broadcast(updated);
+  });
+
   // --- Select story ---
   socket.on("select-story", ({ storyId }) => {
     const session = guardFacilitator(currentSessionId);
@@ -166,6 +196,7 @@ io.on("connection", (socket) => {
   socket.on("set-estimate", ({ storyId, estimate }) => {
     const session = guardFacilitator(currentSessionId);
     if (!session) return;
+    if (!DECKS[session.deck]?.cards.includes(estimate)) return;
     const updated = setEstimate(currentSessionId, storyId, estimate);
     if (updated) broadcast(updated);
   });
@@ -178,6 +209,9 @@ io.on("connection", (socket) => {
     io.to(session.id).emit("session-ended");
     deleteSession(session.id);
     currentSessionId = null;
+    // Snapshot immediately so a restart before the next periodic save can't
+    // resurrect a session the facilitator just explicitly ended.
+    writeSnapshot();
   });
 
   // --- Disconnect ---
@@ -194,6 +228,9 @@ io.on("connection", (socket) => {
 
 // Start background session cleanup job
 startCleanupJob();
+
+// Restore any saved sessions and start periodically snapshotting to disk
+startPersistence();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
