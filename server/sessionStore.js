@@ -272,6 +272,29 @@ function publicState(session) {
   };
 }
 
+/** Return a plain-object snapshot of all sessions, suitable for JSON.stringify. */
+function getSnapshot() {
+  return Array.from(sessions.values());
+}
+
+/**
+ * Reload sessions from a previously-saved snapshot (see getSnapshot). Every
+ * participant is marked offline first: a snapshot only survives a process
+ * restart, and a restart invalidates every live socket id, so there's no
+ * real connection to consider "online" until each participant reconnects
+ * through the normal name+token flow (see reconnectParticipant).
+ */
+function restoreSnapshot(snapshot) {
+  const now = new Date();
+  for (const session of snapshot) {
+    session.participants.forEach((p) => {
+      p.online = false;
+      p.disconnectedAt = p.disconnectedAt ? new Date(p.disconnectedAt) : now;
+    });
+    sessions.set(session.id, session);
+  }
+}
+
 /**
  * Purge sessions where every participant has been offline for longer than
  * SESSION_TTL_MS. Called on an interval — not invoked per-request.
@@ -320,4 +343,6 @@ module.exports = {
   setEstimate,
   publicState,
   startCleanupJob,
+  getSnapshot,
+  restoreSnapshot,
 };

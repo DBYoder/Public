@@ -35,6 +35,12 @@ function saveReconnectToken(sessionId, name, token) {
 export function useSocket(sessionInfo) {
   const socketRef = useRef(null);
   const pendingTokenRef = useRef(null);
+  // Set once the server confirms which session we're in. Reused so that a
+  // dropped connection re-joins that same session instead of blindly
+  // resending the original request — which, for whoever created the
+  // session, has createNew: true and would otherwise spin up a brand new
+  // empty session on every reconnect instead of resuming theirs.
+  const resolvedSessionIdRef = useRef(null);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -46,13 +52,15 @@ export function useSocket(sessionInfo) {
 
     socket.on("connect", () => {
       setConnected(true);
-      const reconnectToken = sessionInfo.createNew
+      const isReconnect = !!resolvedSessionIdRef.current;
+      const sessionId = isReconnect
+        ? resolvedSessionIdRef.current
+        : (sessionInfo.sessionId || "").toUpperCase();
+      const createNew = sessionInfo.createNew && !isReconnect;
+      const reconnectToken = createNew
         ? undefined
-        : loadReconnectToken(
-            (sessionInfo.sessionId || "").toUpperCase(),
-            sessionInfo.name
-          );
-      socket.emit("join", { ...sessionInfo, reconnectToken });
+        : loadReconnectToken(sessionId, sessionInfo.name);
+      socket.emit("join", { ...sessionInfo, sessionId, createNew, reconnectToken });
     });
 
     socket.on("disconnect", () => setConnected(false));
@@ -64,6 +72,7 @@ export function useSocket(sessionInfo) {
     socket.on("session-state", (state) => {
       setSession(state);
       setError(null);
+      resolvedSessionIdRef.current = state.id;
       if (pendingTokenRef.current) {
         saveReconnectToken(state.id, sessionInfo.name, pendingTokenRef.current);
         pendingTokenRef.current = null;

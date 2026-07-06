@@ -193,6 +193,35 @@ describe("reconnectParticipant", () => {
   });
 });
 
+describe("getSnapshot / restoreSnapshot", () => {
+  it("round-trips a session through JSON and marks participants offline", () => {
+    const session = makeSession();
+    store.addStory(session.id, { title: "A story" });
+    store.castVote(session.id, "fac-1", "8");
+
+    const roundTripped = JSON.parse(JSON.stringify(store.getSnapshot()));
+    store.restoreSnapshot(roundTripped);
+
+    const restored = store.getSession(session.id);
+    expect(restored.stories[0].title).toBe("A story");
+    expect(restored.participants[0].vote).toBe("8");
+    expect(restored.participants[0].online).toBe(false);
+    expect(restored.participants[0].disconnectedAt).toBeInstanceOf(Date);
+  });
+
+  it("a restored participant can reconnect with their original token", () => {
+    const session = makeSession();
+    const token = session.participants[0].reconnectToken;
+
+    const roundTripped = JSON.parse(JSON.stringify(store.getSnapshot()));
+    store.restoreSnapshot(roundTripped);
+
+    const result = store.reconnectParticipant(session.id, "Alice", "new-socket-after-restart", token);
+    expect(result).not.toBeNull();
+    expect(store.getSession(session.id).facilitatorId).toBe("new-socket-after-restart");
+  });
+});
+
 describe("publicState", () => {
   it("hides votes during voting and reveals them after reveal", () => {
     const session = makeSession();

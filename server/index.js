@@ -23,6 +23,7 @@ const {
   startCleanupJob,
 } = require("./sessionStore");
 const { DECKS } = require("./decks");
+const { startPersistence, writeSnapshot } = require("./persistence");
 
 const app = express();
 const server = http.createServer(app);
@@ -208,6 +209,9 @@ io.on("connection", (socket) => {
     io.to(session.id).emit("session-ended");
     deleteSession(session.id);
     currentSessionId = null;
+    // Snapshot immediately so a restart before the next periodic save can't
+    // resurrect a session the facilitator just explicitly ended.
+    writeSnapshot();
   });
 
   // --- Disconnect ---
@@ -224,6 +228,9 @@ io.on("connection", (socket) => {
 
 // Start background session cleanup job
 startCleanupJob();
+
+// Restore any saved sessions and start periodically snapshotting to disk
+startPersistence();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
