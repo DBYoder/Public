@@ -4,6 +4,20 @@ const { DECKS } = require("./decks");
 
 const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
 
+// Caps on client-supplied text so a single participant can't bloat session
+// memory with arbitrarily large names/stories.
+const MAX_NAME_LENGTH = 50;
+const MAX_STORY_NUMBER_LENGTH = 50;
+const MAX_TITLE_LENGTH = 200;
+const MAX_TEXT_LENGTH = 5000;
+const MAX_BULK_STORIES = 500;
+
+function truncate(value, maxLength) {
+  return String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
+}
+
 // Map<sessionId, Session>
 const sessions = new Map();
 
@@ -31,7 +45,7 @@ function createSession({ facilitatorId, facilitatorName, deck }) {
     participants: [
       {
         id: facilitatorId,
-        name: facilitatorName,
+        name: truncate(facilitatorName, MAX_NAME_LENGTH),
         vote: null,
         isObserver: false,
         isFacilitator: true,
@@ -66,7 +80,7 @@ function addParticipant(sessionId, { id, name, isObserver }) {
   }
   session.participants.push({
     id,
-    name,
+    name: truncate(name, MAX_NAME_LENGTH),
     vote: null,
     isObserver,
     isFacilitator: false,
@@ -156,10 +170,10 @@ function addStory(sessionId, { title, storyNumber = "", description = "", accept
   if (!session) return null;
   const story = {
     id: nanoid(),
-    storyNumber,
-    title,
-    description,
-    acceptanceCriteria,
+    storyNumber: truncate(storyNumber, MAX_STORY_NUMBER_LENGTH),
+    title: truncate(title, MAX_TITLE_LENGTH),
+    description: truncate(description, MAX_TEXT_LENGTH),
+    acceptanceCriteria: truncate(acceptanceCriteria, MAX_TEXT_LENGTH),
     finalEstimate: null,
   };
   session.stories.push(story);
@@ -170,14 +184,17 @@ function addStory(sessionId, { title, storyNumber = "", description = "", accept
 function addStoriesBulk(sessionId, stories) {
   const session = sessions.get(sessionId);
   if (!session) return null;
-  for (const { title, storyNumber = "", description = "", acceptanceCriteria = "" } of stories) {
+  for (const { title, storyNumber = "", description = "", acceptanceCriteria = "" } of stories.slice(
+    0,
+    MAX_BULK_STORIES
+  )) {
     if (!title?.trim()) continue;
     const story = {
       id: nanoid(),
-      storyNumber: storyNumber.trim(),
-      title: title.trim(),
-      description: description.trim(),
-      acceptanceCriteria: acceptanceCriteria.trim(),
+      storyNumber: truncate(storyNumber, MAX_STORY_NUMBER_LENGTH),
+      title: truncate(title, MAX_TITLE_LENGTH),
+      description: truncate(description, MAX_TEXT_LENGTH),
+      acceptanceCriteria: truncate(acceptanceCriteria, MAX_TEXT_LENGTH),
       finalEstimate: null,
     };
     session.stories.push(story);
