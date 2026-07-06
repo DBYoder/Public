@@ -76,8 +76,9 @@ export default function Session({ sessionInfo, decks, onLeave }) {
   const myVote =
     session.phase === "revealed" ? (me?.vote ?? localMyVote) : localMyVote;
 
-  function copySessionId() {
-    navigator.clipboard.writeText(session.id);
+  function copyJoinLink() {
+    const url = `${window.location.origin}${window.location.pathname}?join=${session.id}`;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -89,13 +90,13 @@ export default function Session({ sessionInfo, decks, onLeave }) {
         <h1 className="font-bold text-white text-lg">Planning Poker</h1>
         <div className="flex items-center gap-3">
           <button
-            onClick={copySessionId}
+            onClick={copyJoinLink}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-mono font-semibold text-slate-200 transition-colors"
-            title="Copy session ID"
+            title="Copy invite link"
           >
             {session.id}
             <span className="text-xs text-slate-400 font-sans">
-              {copied ? "✓ Copied" : "Copy"}
+              {copied ? "✓ Copied link" : "Copy link"}
             </span>
           </button>
           {isFacilitator && (

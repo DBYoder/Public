@@ -1,10 +1,17 @@
 import { useState } from "react";
 
+// A join link (?join=XKCD42) pre-fills the join form and switches to that
+// tab, so sharing a link is one click instead of copying a bare session ID.
+const joinParam = new URLSearchParams(window.location.search)
+  .get("join")
+  ?.trim()
+  .toUpperCase();
+
 export default function Landing({ decks, onJoin }) {
   const deckEntries = Object.entries(decks);
-  const [tab, setTab] = useState("create"); // "create" | "join"
+  const [tab, setTab] = useState(joinParam ? "join" : "create"); // "create" | "join"
   const [name, setName] = useState("");
-  const [sessionId, setSessionId] = useState("");
+  const [sessionId, setSessionId] = useState(joinParam || "");
   const [deck, setDeck] = useState("hours");
   const [isObserver, setIsObserver] = useState(false);
   const [error, setError] = useState("");
