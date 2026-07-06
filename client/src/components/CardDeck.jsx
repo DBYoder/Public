@@ -1,11 +1,4 @@
-const DECKS = {
-  hours:     ["½", "1", "2", "4", "8", "16", "24", "40", "?", "☕"],
-  fibonacci: ["0", "1", "2", "3", "5", "8", "13", "21", "34", "?", "∞", "☕"],
-  tshirt:    ["XS", "S", "M", "L", "XL", "XXL", "?", "☕"],
-};
-
-export default function CardDeck({ deck, myVote, phase, onVote }) {
-  const cards = DECKS[deck] || DECKS.hours;
+export default function CardDeck({ cards, myVote, phase, onVote }) {
   const disabled = phase === "revealed";
 
   return (

@@ -1,19 +1,12 @@
-const SPECIAL = ["?", "∞", "☕"];
-const NON_NUMERIC_DECKS = ["tshirt"];
-
-function isNumericDeck(deck) {
-  return !NON_NUMERIC_DECKS.includes(deck);
-}
-
 function toNumber(card) {
   if (card === "½") return 0.5;
   const n = parseFloat(card);
   return isNaN(n) ? null : n;
 }
 
-function calcStats(votes) {
+function calcStats(votes, special) {
   const numeric = votes
-    .filter((v) => !SPECIAL.includes(v))
+    .filter((v) => !special.includes(v))
     .map(toNumber)
     .filter((n) => n !== null);
 
@@ -37,17 +30,19 @@ function tally(votes) {
 
 export default function ResultsPanel({
   participants,
-  deck,
+  deckInfo,
   currentStoryId,
   isFacilitator,
   onSetEstimate,
   onReset,
 }) {
+  const { cards = [], special = [], isNonNumeric = false } = deckInfo || {};
   const votes = participants
     .filter((p) => !p.isObserver && p.vote)
     .map((p) => p.vote);
 
   const noVotes = votes.length === 0;
+  const estimateOptions = cards.filter((c) => !special.includes(c));
 
   return (
     <div className="bg-slate-700/50 border border-slate-600 rounded-xl p-4 mt-4">
@@ -55,16 +50,15 @@ export default function ResultsPanel({
 
       {noVotes ? (
         <p className="text-sm text-slate-400">No votes cast.</p>
-      ) : isNumericDeck(deck) ? (
-        <NumericResults votes={votes} deck={deck} />
+      ) : !isNonNumeric ? (
+        <NumericResults votes={votes} special={special} />
       ) : (
         <TallyResults votes={votes} />
       )}
 
       {isFacilitator && (
         <FacilitatorControls
-          votes={votes}
-          deck={deck}
+          estimateOptions={estimateOptions}
           currentStoryId={currentStoryId}
           onSetEstimate={onSetEstimate}
           onReset={onReset}
@@ -74,9 +68,9 @@ export default function ResultsPanel({
   );
 }
 
-function NumericResults({ votes, deck }) {
-  const stats = calcStats(votes);
-  const specials = votes.filter((v) => SPECIAL.includes(v));
+function NumericResults({ votes, special }) {
+  const stats = calcStats(votes, special);
+  const specials = votes.filter((v) => special.includes(v));
 
   return (
     <div className="space-y-3">
@@ -86,7 +80,7 @@ function NumericResults({ votes, deck }) {
           <span
             key={i}
             className={`px-2.5 py-1 rounded-lg text-sm font-mono font-bold ${
-              SPECIAL.includes(v)
+              special.includes(v)
                 ? "bg-slate-600 text-slate-300"
                 : "bg-indigo-600 text-white"
             }`}
@@ -153,26 +147,18 @@ function Stat({ label, value }) {
 }
 
 function FacilitatorControls({
-  votes,
-  deck,
+  estimateOptions,
   currentStoryId,
   onSetEstimate,
   onReset,
 }) {
-  const cards =
-    deck === "hours"
-      ? ["½", "1", "2", "4", "8", "16", "24", "40"]
-      : deck === "fibonacci"
-      ? ["0", "1", "2", "3", "5", "8", "13", "21", "34"]
-      : ["XS", "S", "M", "L", "XL", "XXL"];
-
   return (
     <div className="mt-4 pt-3 border-t border-slate-600">
       <p className="text-xs text-slate-400 mb-2 font-medium">
         Set final estimate
       </p>
       <div className="flex flex-wrap gap-1.5">
-        {cards.map((c) => (
+        {estimateOptions.map((c) => (
           <button
             key={c}
             onClick={() => onSetEstimate(currentStoryId, c)}

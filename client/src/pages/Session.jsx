@@ -5,7 +5,7 @@ import StoryList from "../components/StoryList.jsx";
 import ResultsPanel from "../components/ResultsPanel.jsx";
 import ParticipantList from "../components/ParticipantList.jsx";
 
-export default function Session({ sessionInfo, onLeave }) {
+export default function Session({ sessionInfo, decks, onLeave }) {
   const { session, error, connected, myId, emit, sessionEnded } = useSocket(sessionInfo);
   const [copied, setCopied] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -219,7 +219,7 @@ export default function Session({ sessionInfo, onLeave }) {
                   : "Pick a card"}
               </p>
               <CardDeck
-                deck={session.deck}
+                cards={decks[session.deck]?.cards || []}
                 myVote={myVote}
                 phase={session.phase}
                 onVote={(card) => {
@@ -248,7 +248,7 @@ export default function Session({ sessionInfo, onLeave }) {
             <div className="w-full max-w-2xl mt-4">
               <ResultsPanel
                 participants={session.participants}
-                deck={session.deck}
+                deckInfo={decks[session.deck]}
                 currentStoryId={session.currentStoryId}
                 isFacilitator={isFacilitator}
                 onSetEstimate={(storyId, estimate) =>

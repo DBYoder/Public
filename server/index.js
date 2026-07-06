@@ -55,6 +55,8 @@ app.get("/api/decks", (_req, res) => {
       key,
       label: val.label,
       cards: val.cards,
+      special: val.special,
+      isNonNumeric: !!val.isNonNumeric,
     }))
   );
 });

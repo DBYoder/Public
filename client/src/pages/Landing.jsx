@@ -1,12 +1,7 @@
 import { useState } from "react";
 
-const DECKS = [
-  { key: "hours", label: "Hours", preview: "½ 1 2 4 8 16 24 40" },
-  { key: "fibonacci", label: "Fibonacci", preview: "1 2 3 5 8 13 21 34" },
-  { key: "tshirt", label: "T-Shirt Sizes", preview: "XS S M L XL XXL" },
-];
-
-export default function Landing({ onJoin }) {
+export default function Landing({ decks, onJoin }) {
+  const deckEntries = Object.entries(decks);
   const [tab, setTab] = useState("create"); // "create" | "join"
   const [name, setName] = useState("");
   const [sessionId, setSessionId] = useState("");
@@ -85,33 +80,38 @@ export default function Landing({ onJoin }) {
                   Card deck
                 </label>
                 <div className="space-y-2">
-                  {DECKS.map((d) => (
-                    <label
-                      key={d.key}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        deck === d.key
-                          ? "border-indigo-500 bg-indigo-500/10"
-                          : "border-slate-600 hover:border-slate-500"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="deck"
-                        value={d.key}
-                        checked={deck === d.key}
-                        onChange={() => setDeck(d.key)}
-                        className="accent-indigo-500"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {d.label}
+                  {deckEntries.map(([key, d]) => {
+                    const preview = d.cards
+                      .filter((c) => !d.special.includes(c))
+                      .join(" ");
+                    return (
+                      <label
+                        key={key}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          deck === key
+                            ? "border-indigo-500 bg-indigo-500/10"
+                            : "border-slate-600 hover:border-slate-500"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="deck"
+                          value={key}
+                          checked={deck === key}
+                          onChange={() => setDeck(key)}
+                          className="accent-indigo-500"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {d.label}
+                          </div>
+                          <div className="text-xs text-slate-400 font-mono">
+                            {preview}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-400 font-mono">
-                          {d.preview}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
