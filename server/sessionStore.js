@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { customAlphabet } = require("nanoid");
 const { DECKS } = require("./decks");
 
@@ -36,6 +37,7 @@ function createSession({ facilitatorId, facilitatorName, deck }) {
         isFacilitator: true,
         online: true,
         disconnectedAt: null,
+        reconnectToken: crypto.randomUUID(),
       },
     ],
     phase: "voting",
@@ -70,23 +72,29 @@ function addParticipant(sessionId, { id, name, isObserver }) {
     isFacilitator: false,
     online: true,
     disconnectedAt: null,
+    reconnectToken: crypto.randomUUID(),
   });
   return session;
 }
 
 /**
- * Attempt to reconnect an offline participant by name match.
- * If found, updates their socket ID, marks them online, and updates
- * facilitatorId if they were the facilitator.
- * Returns the session on success, null if no offline match was found.
+ * Attempt to reconnect an offline participant. Requires both a case-insensitive
+ * name match AND the reconnect token issued to that participant on their
+ * original join — name alone is not proof of identity, since anyone in the
+ * room can see another participant's display name (including the
+ * facilitator's) and would otherwise be able to steal their slot, and with it
+ * facilitator privileges, during a brief disconnect.
+ * Returns the session on success, null if no matching offline participant was found.
  */
-function reconnectParticipant(sessionId, name, newSocketId) {
+function reconnectParticipant(sessionId, name, newSocketId, token) {
   const session = sessions.get(sessionId);
-  if (!session) return null;
+  if (!session || !token) return null;
 
-  // Case-insensitive name match against offline participants only
   const existing = session.participants.find(
-    (p) => !p.online && p.name.toLowerCase() === name.trim().toLowerCase()
+    (p) =>
+      !p.online &&
+      p.name.toLowerCase() === name.trim().toLowerCase() &&
+      p.reconnectToken === token
   );
   if (!existing) return null;
 

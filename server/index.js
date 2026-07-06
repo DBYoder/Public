@@ -81,7 +81,7 @@ io.on("connection", (socket) => {
   }
 
   // --- Join ---
-  socket.on("join", ({ sessionId, name, isObserver, createNew, deck }) => {
+  socket.on("join", ({ sessionId, name, isObserver, createNew, deck, reconnectToken }) => {
     try {
       let session;
       if (createNew) {
@@ -94,9 +94,13 @@ io.on("connection", (socket) => {
           return;
         }
 
-        // Try to reconnect as an existing offline participant with the same name.
-        // This handles page-refresh / network-drop without losing vote state.
-        const reconnected = reconnectParticipant(id, name, socket.id);
+        // Try to reconnect as an existing offline participant with the same
+        // name AND reconnect token. This handles page-refresh / network-drop
+        // without losing vote state, while requiring proof of identity so a
+        // name match alone can't be used to steal someone else's slot.
+        const reconnected = reconnectToken
+          ? reconnectParticipant(id, name, socket.id, reconnectToken)
+          : null;
         if (reconnected) {
           session = reconnected;
         } else {
@@ -105,6 +109,8 @@ io.on("connection", (socket) => {
       }
       currentSessionId = session.id;
       socket.join(session.id);
+      const me = session.participants.find((p) => p.id === socket.id);
+      socket.emit("joined", { reconnectToken: me?.reconnectToken });
       broadcast(session);
     } catch (err) {
       socket.emit("error", { message: err.message });
